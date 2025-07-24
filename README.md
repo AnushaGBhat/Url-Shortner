@@ -1,4 +1,4 @@
-# URL Shorten
+# URL Shortener
 A simple Flask-based web application that shortens long URLs into compact, shareable links
 
 ## Features
