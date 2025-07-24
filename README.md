@@ -3,9 +3,10 @@ A simple Flask-based web application that shortens long URLs into compact, share
 
 ## Features
 - Shortens any long URL into a short, easy-to-share format.
-- Instant copy to clipboard functionality.
-- Auto-refresh after copying.
-- Lightweight Flask backend storing data in a local JSON file.
+- Provides redirection using short codes.
+- Exposes API endpoints for shortening, redirection, and stats.
+- Lightweight backend using in-memory dictionary (no external DB).
+- Includes test cases using `pytest`
 
 ## Technologies Used
 
