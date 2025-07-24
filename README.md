@@ -12,7 +12,7 @@ A simple Flask-based web application that shortens long URLs into compact, share
 
 - Python 3
 - Flask
--pytest
+- -pytest
 
 
 ## How to Run
