@@ -1,39 +1,55 @@
-from flask import Flask, request, jsonify, send_from_directory, redirect
-import random
-import string
+from flask import Flask, request, jsonify, redirect
+import string, random, datetime
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__)
 
 url_store = {}
+clicks = {}
 
-class ShortURL:
-    def __init__(self, original_url, short_code):
-        self.original_url = original_url
-        self.short_code = short_code
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "ok"}), 200
 
-@app.route("/")
-def home():
-    return send_from_directory('static', 'index.html')
+def generate_short_code():
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=6))
 
-@app.route("/shorten", methods=["POST"])
-def shorten():
+@app.route("/api/shorten", methods=["POST"])
+def shorten_url():
     data = request.get_json()
-    original_url = data.get("url")
+    url = data.get("url")
+    if not url:
+        return jsonify({"error": "Missing URL"}), 400
 
-    if not original_url:
-        return jsonify({"error": "URL is required"}), 400
+    short_code = generate_short_code()
+    while short_code in url_store:
+        short_code = generate_short_code()
 
-    short_code = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-    url_store[short_code] = ShortURL(original_url, short_code)
+    url_store[short_code] = {
+        "original_url": url,
+        "created_at": datetime.datetime.utcnow(),
+    }
+    clicks[short_code] = 0
 
-    return jsonify({"short_url": request.host_url + short_code})
+    return jsonify({
+        "short_code": short_code,
+        "short_url": request.host_url + short_code
+    })
 
 @app.route("/<short_code>")
-def redirect_to_url(short_code):
-    url_data = url_store.get(short_code)
-    if url_data:
-        return redirect(url_data.original_url)  # ✅ HTTP 302
-    return "URL not found", 404
+def redirect_url(short_code):
+    if short_code not in url_store:
+        return jsonify({"error": "Not found"}), 404
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    clicks[short_code] += 1
+    return redirect(url_store[short_code]["original_url"])
+
+@app.route("/api/stats/<short_code>")
+def stats(short_code):
+    if short_code not in url_store:
+        return jsonify({"error": "Not found"}), 404
+
+    return jsonify({
+        "url": url_store[short_code]["original_url"],
+        "clicks": clicks[short_code],
+        "created_at": url_store[short_code]["created_at"].isoformat()
+    })

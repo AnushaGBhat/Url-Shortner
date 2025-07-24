@@ -1,32 +1,41 @@
+# tests/test_basic.py
+import pytest
 import sys
 import os
-import pytest
 
-# Fix import path so app can be found when running pytest from root
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from app.main import app
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
+from main import app
 
 @pytest.fixture
 def client():
-    app.testing = True
-    return app.test_client()
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
 
-def test_homepage(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert b"URL Shortener" in response.data  # check page content
+def test_health(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.get_json() == {"status": "ok"}
 
 def test_shorten_and_redirect(client):
-    # Shorten a URL
-    response = client.post("/shorten", json={"url": "https://example.com"})
-    assert response.status_code == 200
-    data = response.get_json()
-    assert "short_url" in data
-    short_url = data["short_url"]
-    short_code = short_url.split("/")[-1]
+    res = client.post("/api/shorten", json={"url": "https://example.com"})
+    assert res.status_code == 200
+    data = res.get_json()
+    short_code = data["short_code"]
 
-    # Try redirection
-    response = client.get(f"/{short_code}", follow_redirects=False)
-    assert response.status_code == 302
-    assert response.headers["Location"] == "https://example.com"
+    redirect_res = client.get(f"/{short_code}", follow_redirects=False)
+    assert redirect_res.status_code == 302
+    assert redirect_res.headers["Location"] == "https://example.com"
+
+def test_stats(client):
+    res = client.post("/api/shorten", json={"url": "https://example.org"})
+    short_code = res.get_json()["short_code"]
+
+    client.get(f"/{short_code}")
+    client.get(f"/{short_code}")
+    
+    stats_res = client.get(f"/api/stats/{short_code}")
+    assert stats_res.status_code == 200
+    stats = stats_res.get_json()
+    assert stats["url"] == "https://example.org"
+    assert stats["clicks"] == 2
